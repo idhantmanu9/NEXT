@@ -1,0 +1,8 @@
+{
+  "name": " NEXT",
+  "description": "An advanced AI assistant created by Idhant, featuring high-performance reasoning and creative image generation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
