@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 interface SettingsProps {
   creatorName: string;
   onUpdateName: (name: string) => void;
+  onClearHistory: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ creatorName, onUpdateName }) => {
+export const Settings: React.FC<SettingsProps> = ({ creatorName, onUpdateName, onClearHistory }) => {
   const [tempName, setTempName] = useState(creatorName);
   const [saved, setSaved] = useState(false);
 
@@ -17,7 +18,7 @@ export const Settings: React.FC<SettingsProps> = ({ creatorName, onUpdateName })
   };
 
   return (
-    <div className="p-8 h-full overflow-y-auto max-w-2xl mx-auto space-y-12">
+    <div className="p-8 h-full overflow-y-auto max-w-2xl mx-auto space-y-12 pb-24">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-zinc-500 mt-2">Personalize your NEXT Assistant experience.</p>
@@ -42,11 +43,36 @@ export const Settings: React.FC<SettingsProps> = ({ creatorName, onUpdateName })
               />
               <button
                 onClick={handleSave}
-                className="px-8 py-3.5 bg-cyan-600 text-white rounded-2xl text-sm font-bold hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-950/20 active:scale-95"
+                className="px-8 py-3.5 bg-cyan-600 text-white rounded-2xl text-sm font-bold hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-950/20 active:scale-95 shrink-0"
               >
                 {saved ? 'UPDATED' : 'UPDATE'}
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <i className="fa-solid fa-database text-red-400"></i>
+          Data Management
+        </h2>
+        <div className="glass p-8 rounded-3xl border border-zinc-800/50 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-bold text-zinc-200">Chat History</h4>
+              <p className="text-xs text-zinc-500">Wipe all stored conversations and images from this device.</p>
+            </div>
+            <button
+              onClick={() => {
+                if(confirm("Are you sure you want to delete all chat history?")) {
+                  onClearHistory();
+                }
+              }}
+              className="px-5 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all active:scale-95"
+            >
+              CLEAR ALL
+            </button>
           </div>
         </div>
       </section>

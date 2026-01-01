@@ -11,6 +11,14 @@ export interface Message {
   content: string;
   timestamp: number;
   image?: string;
+  video?: string;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: number;
 }
 
 export interface AppState {

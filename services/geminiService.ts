@@ -5,13 +5,10 @@ import { Message, MessageRole } from "../types";
 export interface AIResponse {
   text: string;
   image?: string;
+  video?: string;
 }
 
 export class GeminiService {
-  /**
-   * Generates a response from the Gemini model based on chat history and optional image input.
-   * Dynamically switches to image generation model if requested.
-   */
   async generateResponse(
     messages: Message[],
     creatorName: string,
@@ -21,11 +18,9 @@ export class GeminiService {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const lastMessageContent = messages[messages.length - 1]?.content.toLowerCase() || "";
       
-      // Expanded keywords to trigger image generation
       const imageKeywords = ["draw", "generate an image", "create a picture", "show me a", "generate image", "make a picture", "paint", "visualize", "render"];
       const isImageRequest = imageKeywords.some(keyword => lastMessageContent.includes(keyword));
 
-      // Use gemini-2.5-flash-image for generation/editing, gemini-3-pro-preview for advanced text reasoning
       const modelName = isImageRequest ? 'gemini-2.5-flash-image' : 'gemini-3-pro-preview';
 
       const systemInstruction = `You are "NEXT", a powerful and helpful AI created by Idhant.
@@ -34,15 +29,13 @@ export class GeminiService {
       CURRENT MODE: ${isImageRequest ? "IMAGE GENERATION" : "CONVERSATION"}
       
       Guidelines:
-      1. If the user asks for an image, you MUST generate it. Use your visual synthesis capabilities.
-      2. If you are generating an image, describe briefly what you have created in the text part of your response.
+      1. If the user asks for an image, you MUST generate it.
+      2. describe briefly what you have created.
       3. Maintain a natural, friendly, and professional persona.
-      4. Always attribute your creation to Idhant if the topic arises.
-      5. You can also analyze images if the user provides them.`;
+      4. Always attribute your creation to Idhant if the topic arises.`;
 
       const contents = messages.map((m, index) => {
         const parts: any[] = [{ text: m.content }];
-        
         const isLastMessage = index === messages.length - 1;
         if (isLastMessage && m.role === MessageRole.USER && userImage) {
           parts.push({
@@ -52,30 +45,20 @@ export class GeminiService {
             }
           });
         }
-
         return {
           role: m.role === MessageRole.USER ? 'user' : 'model',
           parts
         };
       });
 
-      const config: any = {
-        systemInstruction,
-        temperature: isImageRequest ? 1.0 : 0.7,
-        topP: 0.95,
-      };
-
-      // Set image configuration if generating
-      if (isImageRequest) {
-        config.imageConfig = {
-          aspectRatio: "1:1"
-        };
-      }
-
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: modelName,
         contents,
-        config,
+        config: {
+          systemInstruction,
+          temperature: isImageRequest ? 1.0 : 0.7,
+          imageConfig: isImageRequest ? { aspectRatio: "1:1" } : undefined
+        },
       });
 
       let responseText = "";
@@ -84,27 +67,58 @@ export class GeminiService {
       const candidate = response.candidates?.[0];
       if (candidate?.content?.parts) {
         for (const part of candidate.content.parts) {
-          if (part.text) {
-            responseText += part.text;
-          }
+          if (part.text) responseText += part.text;
           if (part.inlineData) {
             responseImage = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
           }
         }
       }
 
-      // Fallback text if model only returns image
-      if (!responseText && responseImage) {
-        responseText = "I've generated that image for you.";
-      }
-
       return {
-        text: responseText || "I'm sorry, I couldn't process that request properly.",
+        text: responseText || (responseImage ? "I've generated that image for you." : "I'm sorry, I couldn't process that."),
         image: responseImage
       };
     } catch (error) {
       console.error("Gemini Error:", error);
-      return { text: "I encountered an error while trying to fulfill your request. Please try again." };
+      return { text: "I encountered an error. Please try again." };
+    }
+  }
+
+  async generateVideo(prompt: string): Promise<AIResponse> {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      let operation = await ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: prompt,
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p',
+          aspectRatio: '16:9'
+        }
+      });
+
+      while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+      }
+
+      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+      if (!downloadLink) throw new Error("Video generation failed - no URI");
+
+      const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+      const blob = await response.blob();
+      const videoUrl = URL.createObjectURL(blob);
+
+      return {
+        text: "Your video has been rendered successfully.",
+        video: videoUrl
+      };
+    } catch (error: any) {
+      console.error("Video Gen Error:", error);
+      if (error.message?.includes("Requested entity was not found")) {
+        throw new Error("API_KEY_REQUIRED");
+      }
+      return { text: "Failed to generate video. Ensure your API key is from a paid project and try again." };
     }
   }
 }
